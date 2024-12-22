@@ -69,7 +69,7 @@ def plot_graph():
     plt.grid()
 
     plt.subplot(313)
-    dew_point=
+
     
     plt.ylabel('Dew [C]')
     ax.set_xticklabels([])
