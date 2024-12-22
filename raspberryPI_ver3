@@ -54,19 +54,28 @@ def plot_graph():
     
     plt.subplot(311)
     plt.plot(data.index, data['Temperature (C)'], label='AWS2024 Temperature (C)', color='red')
+    ax = plt.gca()
+    ax.set_xticklabels([])
     plt.ylabel('Temp. [C]')
     plt.legend()
     plt.grid()
 
     plt.subplot(312)
     plt.plot(data.index, data['Humidity (%)'], label='AWS2024 Humidity (%RH)', color='red')
+    ax = plt.gca()
+    ax.set_xticklabels([])
     plt.ylabel('Humi. [%RH]')
     plt.legend()
     plt.grid()
 
     plt.subplot(313)
+    dew_point=
+    
     plt.ylabel('Dew [C]')
-
+    ax.set_xticklabels([])
+    plt.ylabel('Humi. [%RH]')
+    plt.legend()
+    plt.grid()
 
 
     plt.tight_layout()
