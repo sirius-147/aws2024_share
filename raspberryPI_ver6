@@ -1,0 +1,122 @@
+import serial
+import csv
+import os
+from datetime import datetime, timedelta
+import pandas as pd
+import matplotlib.pyplot as plt
+from time import sleep
+import math
+
+
+SERIAL_PORT = '/dev/ttyACM0' # arduino port
+BAUD_RATE = 9600
+
+
+DATA_DIR = '/home/aws2024/aws2024_code/aws2024_csv_data' # data in this path
+
+def get_csv_file_path():
+    """Returns the CSV file path for the current year and month."""
+    now = datetime.utcnow()
+    year_month = now.strftime('%Y%m')  # YYYYMM format
+    file_name = f"AWS2024_Data_{year_month}.csv"
+    file_path = os.path.join(DATA_DIR, file_name)
+
+    if not os.path.exists(file_path):
+        with open(file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['Date (YYYY-MM-DD)', 'Time (GMT)', 'Temperature (C)', 'Humidity (%)', 'Dew Point (C)', 'Pressure (Pa)'])
+    return file_path
+
+def save_data_to_csv(temperature, humidity, Pressure='NaN'): # float
+    a = 17.27
+    b = 237.7
+    gamma = (a * temperature) / (b + temperature) + math.log(humidity / 100)
+    Dew_point = (b * gamma) / (a - gamma)
+    Dew_point = round(Dew_point, 1)
+    
+    file_path = get_csv_file_path()
+    now = datetime.utcnow()
+    date_str = now.strftime('%Y-%m-%d')
+    time_str = now.strftime('%H:%M:%S')
+
+    with open(file_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([date_str, time_str, temperature, humidity, Dew_point, Pressure])
+    
+    print(f"Data saved:")
+    print(f"Date: {date_str}, Time: {time_str}")
+    print(f"Temp: {temperature} C, Humidity: {humidity} %RH")
+    print(f"Dew Point: {Dew_point}, Pressure: {Pressure}")
+
+
+def plot_graph():
+    file_path = get_csv_file_path()
+    if not os.path.exists(file_path):
+        print("No data available to plot.")
+        return
+
+    data = pd.read_csv(file_path)
+    data['Datetime'] = pd.to_datetime(data['Date (YYYY-MM-DD)'] + ' ' + data['Time (GMT)'])
+    data.set_index('Datetime', inplace=True)
+
+    plt.figure(figsize=(12, 6))
+    
+    plt.subplot(311)
+    plt.plot(data.index, data['Temperature (C)'].dropna(), label='AWS2024 Temperature (C)', color='red')
+    plt.plot(data.index, data['Dew Point (C)'].dropna(), label='AWS2024 Dew Point (C)', color='purple')
+    
+    ax = plt.gca()
+    ax.set_xticklabels([])
+    plt.ylabel('Temp. [C]')
+    plt.legend()
+    plt.grid()
+
+    plt.subplot(312)
+    plt.plot(data.index, data['Humidity (%)'].dropna(), label='AWS2024 Humidity (%RH)', color='blue')
+    ax = plt.gca()
+    ax.set_xticklabels([])
+    plt.ylabel('Humi. [%RH]')
+    plt.legend()
+    plt.grid()
+
+
+    plt.subplot(313)
+    if 'Pressure (Pa)' in data.columns:
+        if data['Pressure (Pa)'].isna().any():
+            print("Warning: Pressure data contains NaN values.")
+        plt.plot(data.index, data['Pressure (Pa)'].dropna(), label='Pressure (Pa)', color='green')
+    plt.ylabel('Pressure (Pa)')
+    plt.legend()
+    plt.grid()
+
+
+    plt.tight_layout()
+    graph_path = os.path.join(DATA_DIR, 'weather_latest.png')
+    plt.savefig(graph_path)
+    plt.close()
+    print(f"Graph saved: {graph_path}")
+
+def read_arduino_data():
+    try:
+        with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=10) as ser:
+            while True:
+                line = ser.readline().decode('utf-8').strip()
+                if line.startswith("Temperature:"):
+                    parts = line.split(", ")
+                    temp_str = parts[0].split(": ")[1].strip()
+                    hum_str = parts[1].split(": ")[1].strip(" %")
+                    temperature = float(temp_str)
+                    humidity = float(hum_str)
+
+                    save_data_to_csv(temperature, humidity)
+                    plot_graph()
+
+                    sleep(60) 
+    except Exception as e:
+        print(f"Error reading data: {e}")
+
+if __name__ == '__main__':
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+
+    read_arduino_data()
