@@ -84,7 +84,7 @@ def plot_graph():
     if 'Pressure (Pa)' in data.columns:
         if data['Pressure (Pa)'].isna().any():
             print("Warning: Pressure data contains NaN values.")
-        data['Pressure (Pa)'].fillna(101325, inplace=True) # 1 atm
+        data['Pressure (Pa)'] = data['Pressure (Pa)'].fillna(101325) # 1 atm
         plt.plot(data.index, data['Pressure (Pa)'].dropna(), label='Pressure (Pa)', color='green')
     plt.ylabel('Pressure (Pa)')
     plt.legend()
