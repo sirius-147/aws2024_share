@@ -1,0 +1,68 @@
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+DATA_DIR = '/home/aws2024/aws2024_code/aws2024_csv_data'  # Update as needed
+
+def get_csv_file_path():
+    # Example logic to retrieve the latest CSV file in DATA_DIR
+    files = [f for f in os.listdir(DATA_DIR) if f.endswith('.csv')]
+    if not files:
+        raise FileNotFoundError("No CSV files found in data directory.")
+    latest_file = max(files, key=lambda f: os.path.getmtime(os.path.join(DATA_DIR, f)))
+    return os.path.join(DATA_DIR, latest_file)
+
+def plot_graph():
+    file_path = get_csv_file_path()
+    if not os.path.exists(file_path):
+        print("No data available to plot.")
+        return
+
+    data = pd.read_csv(file_path)
+    
+    # Ensure required columns exist
+    required_columns = ['Date (YYYY-MM-DD)', 'Time (GMT)', 'Temperature (C)', 'Humidity (%)', 'Dew Point (C)']
+    for col in required_columns:
+        if col not in data.columns:
+            raise ValueError(f"Missing required column: {col}")
+    
+    # Handle Datetime parsing
+    data['Datetime'] = pd.to_datetime(data['Date (YYYY-MM-DD)'] + ' ' + data['Time (GMT)'])
+    data.set_index('Datetime', inplace=True)
+    
+    # Fill missing pressure values
+    if 'Pressure (Pa)' in data.columns:
+        data['Pressure (Pa)'] = data['Pressure (Pa)'].fillna(101325)  # Default to 1 atm
+    
+    # Plotting
+    plt.figure(figsize=(12, 8))
+    
+    plt.subplot(311)
+    plt.plot(data.index, data['Temperature (C)'], label='Temperature (C)', color='red')
+    plt.plot(data.index, data['Dew Point (C)'], label='Dew Point (C)', color='purple')
+    plt.ylabel('Temperature (C)')
+    plt.legend()
+    plt.grid()
+    plt.title('AWS2024 Weather Data')
+
+    plt.subplot(312)
+    plt.plot(data.index, data['Humidity (%)'], label='Humidity (%)', color='blue')
+    plt.ylabel('Humidity (%)')
+    plt.legend()
+    plt.grid()
+
+    plt.subplot(313)
+    if 'Pressure (Pa)' in data.columns:
+        plt.plot(data.index, data['Pressure (Pa)'], label='Pressure (Pa)', color='green')
+    plt.ylabel('Pressure (Pa)')
+    plt.legend()
+    plt.grid()
+    
+    # Save and optionally show the plot
+    plt.tight_layout()
+    os.makedirs(DATA_DIR, exist_ok=True)
+    graph_path = os.path.join(DATA_DIR, 'weather_latest.png')
+    plt.savefig(graph_path)
+    plt.close()
+    print(f"Graph saved: {graph_path}")
