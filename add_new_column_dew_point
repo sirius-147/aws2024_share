@@ -1,0 +1,25 @@
+import pandas as pd
+import math
+
+
+file_path = "data_20241205_20241231.csv"  
+data = pd.read_csv(file_path)
+
+def calculate_dew_point(temperature, humidity):
+    a = 17.27
+    b = 237.7
+    gamma = (a * temperature) / (b + temperature) + math.log(humidity / 100)
+    dew_point = (b * gamma) / (a - gamma)
+    return round(dew_point, 1)
+
+for index, row in data.iterrows():
+    if pd.isna(row['Dew Point (C)']):
+        temperature = row['Temperature (C)']
+        humidity = row['Humidity (%)']
+        if not pd.isna(temperature) and not pd.isna(humidity):
+            data.at[index, 'Dew Point (C)'] = calculate_dew_point(temperature, humidity)
+
+output_file_path = "updated_file.csv" 
+data.to_csv(output_file_path, index=False)
+
+print(f"Updated file saved to {output_file_path}")
