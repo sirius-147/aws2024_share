@@ -65,6 +65,7 @@ def plot_graph():
     set_xlim_time_delta = 48  # in hours
 
     # Get csv file
+    file_path = get_csv_file_path()
     if not os.path.exists(file_path):
         print("No data available to plot.")
         return
