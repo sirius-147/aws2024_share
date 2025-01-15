@@ -1,0 +1,51 @@
+import asyncssh
+import asyncio
+import os
+import schedule
+import time
+
+
+SFTP_SERVER = 'your_server_address'
+SFTP_PORT = 22  # 기본 SFTP 포트
+SFTP_USER = 'your_username'
+SFTP_PASS = 'your_password'
+REMOTE_PATH = '/'
+
+local_file = "D:/allskycam/2025-01-15/my_image.jpg"  
+remote_file = "weather_latest.png"  
+
+async def upload_file(local_file, remote_file):
+    try:
+        print(f"Trying to connect to the SFTP server to upload {local_file}...")
+        async with asyncssh.connect(SFTP_SERVER, port=SFTP_PORT, username=SFTP_USER, password=SFTP_PASS,
+                                    known_hosts=None) as conn:
+            print("Connected to the SFTP server")
+            async with conn.start_sftp_client() as sftp:
+                await sftp.put(local_file, os.path.join(REMOTE_PATH, remote_file))
+                print(f'Uploaded and renamed: {local_file} to {remote_file}')
+    except Exception as e:
+        print(f'Error uploading {local_file}: {e}')
+
+def schedule_task(loop):
+
+    asyncio.run_coroutine_threadsafe(upload_file(local_file, remote_file), loop)
+
+def run_schedule():
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+
+    schedule.every(1).minutes.do(schedule_task, loop)
+
+    try:
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Exiting...")
+        loop.stop()
+        loop.close()
+
+if __name__ == "__main__":
+    run_schedule()
