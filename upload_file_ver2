@@ -1,0 +1,55 @@
+import asyncssh
+import asyncio
+import os
+import time
+import traceback
+
+# SFTP server details
+
+
+# Local file details
+LOCAL_FILE_PATH = '/home/aws2024/aws2024_code/aws2024_csv_data/weather_latest.png'
+REMOTE_FILE_NAME = 'weather_latest.png'
+
+async def upload_file():
+    """
+    Upload the local file to the SFTP server, replacing the remote file.
+    """
+    if not os.path.exists(LOCAL_FILE_PATH):
+        print(f"[ERROR] File not found: {LOCAL_FILE_PATH}")
+        return
+
+    try:
+        # Connect to the SFTP server
+        async with asyncssh.connect(
+            SFTP_SERVER, port=SFTP_PORT, username=SFTP_USER, password=SFTP_PASS, known_hosts=None
+        ) as conn:
+            print("[INFO] Connected to the SFTP server.")
+
+            # Start the SFTP client
+            async with conn.start_sftp_client() as sftp:
+                # Upload the file to the remote path
+                await sftp.put(LOCAL_FILE_PATH, os.path.join(REMOTE_PATH, REMOTE_FILE_NAME))
+                print(f"[INFO] Uploaded: {LOCAL_FILE_PATH} to {REMOTE_PATH}/{REMOTE_FILE_NAME}")
+
+    except Exception as e:
+        print(f"[ERROR] Failed to upload file: {e}")
+        traceback.print_exc()
+
+async def run_periodic_upload(interval):
+    """
+    Periodically upload the file every `interval` seconds.
+    """
+    while True:
+        await upload_file()
+        await asyncio.sleep(interval)
+
+if __name__ == "__main__":
+    try:
+        print("[INFO] Starting periodic file uploader...")
+        # Run the periodic upload task with a 30-second interval
+        asyncio.run(run_periodic_upload(30))
+    except KeyboardInterrupt:
+        print("[INFO] Exiting program...")
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
