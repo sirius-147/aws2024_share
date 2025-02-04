@@ -1,0 +1,147 @@
+# add pressure
+
+import serial
+import csv
+import os
+from datetime import datetime, timedelta
+import pandas as pd
+import matplotlib.pyplot as plt
+from time import sleep
+import math
+import matplotlib.dates as mdates
+
+# arduino port
+SERIAL_PORT = '/dev/ttyACM0' 
+BAUD_RATE = 9600
+
+# data in this path
+DATA_DIR = '/home/aws2024/aws2024_code/aws2024_csv_data'
+
+# get_csv_file_pat
+def get_csv_file_path():
+# you can change columns
+    set_writerow=['Date (YYYY-MM-DD)', 'Time (GMT)', 'Temperature (C)', 'Humidity (%)', 'Dew Point (C)', 'Pressure (hPa)']
+    
+# set datetime and make file name
+    now = datetime.utcnow()
+    year_month = now.strftime('%Y%m') 
+    file_name = f"AWS2024_{year_month}.csv"
+    file_path = os.path.join(DATA_DIR, file_name)
+
+# Make new month csv file
+    if not os.path.exists(file_path):
+        with open(file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(set_writerow)
+    return file_path
+
+# save_data_to_csv
+# parameter type : float, not list or array
+def save_data_to_csv(temperature, humidity, Pressure):
+    # Make Dew Point
+    a = 17.27
+    b = 237.7
+    gamma = (a * temperature) / (b + temperature) + math.log(humidity / 100)
+    Dew_point = (b * gamma) / (a - gamma)
+    Dew_point = round(Dew_point, 1)
+
+    # Make datetime data
+    file_path = get_csv_file_path()
+    now = datetime.utcnow()
+    date_str = now.strftime('%Y-%m-%d')
+    time_str = now.strftime('%H:%M:%S')
+
+    # File live update (mode ='a')
+    with open(file_path, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([date_str, time_str, temperature, humidity, Dew_point, Pressure])
+    
+    print(f"Data saved:")
+    print(f"Date: {date_str}, Time: {time_str}")
+    print(f"Temp: {temperature} C, Humidity: {humidity} %RH")
+    print(f"Dew Point: {Dew_point}, Pressure: {Pressure}")
+
+
+# Make graph (.png)
+def plot_graph():
+    # Variable you can control. x-axis time limit
+    set_xlim_time_delta = 48  # in hours
+
+    # Get csv file
+    file_path = get_csv_file_path()
+    if not os.path.exists(file_path):
+        print("No data available to plot.")
+        return
+
+    # Load data and make x-axis
+    data = pd.read_csv(file_path)
+    data['Datetime'] = pd.to_datetime(data['Date (YYYY-MM-DD)'] + ' ' + data['Time (GMT)'])
+    data.set_index('Datetime', inplace=True)
+
+    # Filter data for x-axis limit
+    end_time = datetime.utcnow()
+    start_time = end_time - timedelta(hours=set_xlim_time_delta)
+    data = data[(data.index >= start_time) & (data.index <= end_time)]
+
+    # title and figsize
+    fig, ax = plt.subplots(2,1,figsize=(12, 6))
+    # plt.title('[AWS2024 ({}) ]'.format(end_time.strftime('%Y-%m-%d')))
+
+    ax[0].plot(data.index, data['Temperature (C)'], 'r-')
+    ax[0].set_xticklabels([]) # remove xlabel
+    ax[0].set_ylabel(r'Indoor temperature [$^{\circ}$C]', color='red')
+
+    # Set x-axis format and limits
+    ax[0].xaxis.set_major_locator(mdates.HourLocator(interval=6))
+    ax[0].set_xlim(start_time, end_time)
+    ax[0].grid()
+
+    ax1 = ax[0].twinx()
+    ax1.plot(data.index, data['Humidity (%)'], 'b-')
+    ax1.set_ylabel('Relative humidity [%]', color='blue')
+
+    if 'Pressure (hPa)' in data.columns:
+        data['Pressure (hPa)'] = data['Pressure (hPa)'].fillna(1013.25) # 1 atm
+        ax[1].plot(data.index, data['Pressure (hPa)'].dropna(), 'k-')
+
+    # Set x-axis format and limits
+    ax[1].set_ylabel('Atmospheric pressure [hPa]')
+    ax[1].grid()
+
+    ax[1].xaxis.set_major_formatter(mdates.DateFormatter('%m-%d %H:%M'))
+    ax[1].xaxis.set_major_locator(mdates.HourLocator(interval=6))
+    ax[1].set_xlim(start_time, end_time)
+
+    fig.tight_layout()
+    graph_path = os.path.join(DATA_DIR, 'weather_latest.png')
+    plt.savefig(graph_path)
+    plt.close()
+    print(f"Graph saved: {graph_path}")
+
+def read_arduino_data():
+    try:
+        with serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=10) as ser:
+            while True:
+                line = ser.readline().decode('utf-8').strip()
+                if line.startswith("Temperature:"):
+                    parts = line.split(", ")
+                    temp_str = parts[0].split(": ")[1].strip() 
+                    hum_str = parts[1].split(": ")[1].strip(" %") 
+                    pressure_str=parts[2].split(": ")[1].strip(" hPa") #add pressure
+                    
+                    temperature = float(temp_str) 
+                    humidity = float(hum_str) 
+                    Pressure=float(pressure_str) #add pressure
+                    
+                    save_data_to_csv(temperature, humidity, pressure)
+                    plot_graph()
+
+                    sleep(60) 
+    except Exception as e:
+        print(f"Error reading data: {e}")
+
+if __name__ == '__main__':
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+
+    read_arduino_data()
