@@ -30,7 +30,7 @@ void loop() {
   
   float temperature = dht.readTemperature(); 
   float humidity = dht.readHumidity();       
-  float pressure = bmp.readPressure();
+  float pressure = bmp.readPressure()/100;
 
   if (!isnan(temperature) && !isnan(humidity) && !isnan(pressure)) {
     Serial.print("Temperature: ");
