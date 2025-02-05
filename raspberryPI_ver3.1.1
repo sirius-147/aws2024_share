@@ -37,7 +37,7 @@ def get_csv_file_path():
 
 # save_data_to_csv
 # parameter type : float, not list or array
-def save_data_to_csv(temperature, humidity, Pressure):
+def save_data_to_csv(temperature, humidity, pressure):
     # Make Dew Point
     a = 17.27
     b = 237.7
@@ -54,12 +54,12 @@ def save_data_to_csv(temperature, humidity, Pressure):
     # File live update (mode ='a')
     with open(file_path, mode='a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([date_str, time_str, temperature, humidity, Dew_point, Pressure])
+        writer.writerow([date_str, time_str, temperature, humidity, Dew_point, pressure])
     
     print(f"Data saved:")
     print(f"Date: {date_str}, Time: {time_str}")
     print(f"Temp: {temperature} C, Humidity: {humidity} %RH")
-    print(f"Dew Point: {Dew_point}, Pressure: {Pressure}")
+    print(f"Dew Point: {Dew_point}, Pressure: {pressure} hPa")
 
 
 # Make graph (.png)
@@ -131,7 +131,7 @@ def read_arduino_data():
                     
                     temperature = float(temp_str) 
                     humidity = float(hum_str) 
-                    Pressure=float(pressure_str) #add pressure
+                    pressure=float(pressure_str)+10 #add pressure, correction offset:+10hPa
                     
                     save_data_to_csv(temperature, humidity, pressure)
                     plot_graph()
